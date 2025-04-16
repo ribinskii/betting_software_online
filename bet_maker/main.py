@@ -7,21 +7,24 @@ from decimal import Decimal
 import aio_pika
 import aioredis
 import uvicorn
-from app.db.custom_models import BetAmount
-from app.db.models import Events, Status
-from app.db.session import get_session_db
+from app.db.custom_models import BetAmount, BetOut
+from app.db.models import Events, Status, LineProviderStatus
+from app.db.session import get_session_db, AsyncSessionLocal
 from config import settings
 from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     consumer_task = asyncio.create_task(consumer())
+    status_consumer = asyncio.create_task(status_update_consumer())
     yield
     consumer_task.cancel()
+    status_consumer.cancel()
     try:
-        await consumer_task
+        await asyncio.gather(consumer_task, status_consumer)
     except asyncio.CancelledError:
         print("Consumer остановлен")
 
@@ -82,7 +85,20 @@ async def post_bet(bet_amount: BetAmount = Depends(), session: AsyncSession = De
         print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=f"Ошибка при создании ставки: {str(e)}")
 
+@app.get("/bets", response_model=list[BetOut])
+async def get_bets(session: AsyncSession = Depends(get_session_db)):
+    try:
+        stmt = select(Events.id, Events.status)
+        result = await session.execute(stmt)
+        bets = result.all()
 
+        return [BetOut(id=bet.id, status=bet.status) for bet in bets]
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ошибка при получении истории ставок: {str(e)}"
+        )
 
 async def consumer() -> None:
     print("Началось подключение к RabbitMQ")
@@ -127,6 +143,82 @@ async def consumer() -> None:
     except Exception as e:
         print(f"Ошибка в consumer: {e}")
         # Здесь можно добавить логику переподключения
+
+def map_producer_to_consumer_status(producer_status):
+    mapping = {
+        "незавершённое": Status.IN_PROGRESS,
+        "завершено выигрышем первой команды": Status.WIN,
+        "завершено выигрышем второй команды": Status.FAIL
+    }
+    return mapping.get(producer_status, Status.IN_PROGRESS)
+async def status_update_consumer() -> None:
+    print("Запуск консьюмера для обновления статусов событий")
+    session = AsyncSessionLocal()
+
+    try:
+        connection = await aio_pika.connect_robust(
+            settings.get_rabbitmq_url,
+        )
+        print("Успешное подключение к RabbitMQ для консьюмера статусов")
+
+        queue_name = "event_status_updates"
+
+        async with connection:
+            channel = await connection.channel()
+            await channel.set_qos(prefetch_count=10)
+
+            queue = await channel.declare_queue(
+                queue_name,
+                durable=True,
+                auto_delete=False
+            )
+
+            print(f"Очередь '{queue_name}' готова к получению сообщений")
+
+            async with queue.iterator() as queue_iter:
+                async for message in queue_iter:
+                    try:
+                        async with message.process():
+                            data = json.loads(message.body.decode())
+                            print(f"Получено обновление статуса: {data}")
+
+                            # Обновляем статус в базе данных
+                            event_id = data["event_id"]
+                            producer_status_value = data["new_status"]
+
+                            # Преобразуем статус продюсера в статус консьюмера
+                            try:
+                                new_status = map_producer_to_consumer_status(producer_status_value)
+                            except ValueError:
+                                print(f"Неизвестный статус: {producer_status_value}")
+                                continue
+                            # Проверяем существование события
+                            result = await session.execute(
+                                select(Events).where(Events.id == event_id)
+                            )
+                            event = result.scalar_one_or_none()
+
+                            if not event:
+                                print(f"Событие с ID {event_id} не найдено")
+                                continue
+                            # Обновляем статусevent
+                            event.status = new_status
+                            await session.commit()
+                            print(f"Статус события {event_id} обновлен на {new_status}")
+
+                    except json.JSONDecodeError as e:
+                        print(f"Ошибка декодирования JSON: {e}")
+                    except KeyError as e:
+                        print(f"Отсутствует обязательное поле в сообщении: {e}")
+                    except Exception as e:
+                        print(f"Ошибка обработки сообщения: {e}")
+                        await session.rollback()
+
+    except Exception as e:
+        print(f"Ошибка в консьюмере статусов: {e}")
+    finally:
+        await session.close()
+
 
 
 if __name__ == "__main__":

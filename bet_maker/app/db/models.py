@@ -13,6 +13,11 @@ class Status(enum.Enum):
     WIN = "выиграла"
     FAIL = "проиграла"
 
+class LineProviderStatus(Enum):
+    IN_PROGRESS = "незавершённое"
+    TEAM_ONE_WON = "завершено выигрышем первой команды"
+    TEAM_TWO_WON = "завершено выигрышем второй команды"
+
 class EventsModel(BaseModel):
     id: int
     bet_amount: Decimal

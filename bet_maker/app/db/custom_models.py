@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel, validator
 
+from app.db.models import Status
+
 
 class BetAmount(BaseModel):
     id: int
@@ -15,3 +17,8 @@ class BetAmount(BaseModel):
         if abs(amount.as_tuple().exponent) > 2:
             raise ValueError("Сумма должна иметь не более 2 знаков после запятой")
         return amount
+
+
+class BetOut(BaseModel):
+    id: int
+    status: Status

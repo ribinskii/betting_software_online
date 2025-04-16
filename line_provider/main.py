@@ -5,11 +5,11 @@ from contextlib import asynccontextmanager
 
 import aio_pika
 import uvicorn
-from app.db.models import Events, EventsModel
+from app.db.models import Events, EventsModel, Status
 from app.db.session import AsyncSessionLocal, get_session_db
 from config import settings
 from fastapi import Depends, FastAPI, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -59,6 +59,55 @@ async def delete_event(event_id: int, session: AsyncSession = Depends(get_sessio
     await session.commit()
 
     return {"detail": f"Event with id {event_id} deleted successfully"}
+
+@app.patch("/event/{event_id}/status")
+async def update_event_status(
+        event_id: int,
+        new_status: Status,
+        session: AsyncSession = Depends(get_session_db)
+):
+    try:
+        # 1. Проверяем существование события
+        result = await session.execute(select(Events).where(Events.id == event_id))
+        event = result.scalar_one_or_none()
+
+        if event is None:
+            raise HTTPException(status_code=404, detail="Event not found")
+
+        # 2. Обновляем статус
+        await session.execute(
+            update(Events)
+            .where(Events.id == event_id)
+            .values(status=new_status)
+        )
+        await session.commit()
+
+        # 3. Отправляем обновление в RabbitMQ
+        connection = await aio_pika.connect_robust(settings.get_rabbitmq_url)
+        async with connection:
+            channel = await connection.channel()
+            queue = await channel.declare_queue("event_status_updates", durable=True)
+
+            message_body = json.dumps({
+                "event_id": event_id,
+                "new_status": new_status.value
+            }).encode()
+
+            await channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=message_body,
+                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT
+                ),
+                routing_key="event_status_updates"
+            )
+
+        return {"message": "Status updated successfully", "event_id": event_id, "new_status": new_status.value}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail=f"Error updating event status: {str(e)}")
 
 
 async def send_message(channel, queue_name, data: list):
