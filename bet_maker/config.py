@@ -1,4 +1,5 @@
 import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,10 +10,13 @@ class Settings(BaseSettings):
     DB_PORT: int
     DB_NAME: str
 
-    RABBITMQ_HOST: str
-    RABBITMQ_PORT: int
-    RABBITMQ_USER: str
-    RABBITMQ_PASSWORD: str
+    REDIS_HOST: str
+    REDIS_PORT: int
+
+    RABBIT_HOST: str
+    RABBIT_PORT: int
+    RABBIT_USER: str
+    RABBIT_PASSWORD: str
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -24,9 +28,13 @@ class Settings(BaseSettings):
                 f"{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}")
 
     @property
+    def get_redis_url(self):
+        return (f"redis://{self.REDIS_HOST}")
+
+    @property
     def get_rabbitmq_url(self):
-        return (f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD}@"
-                f"{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}/")
+        return (f"amqp://{self.RABBIT_USER}:{self.RABBIT_PASSWORD}@"
+                f"{self.RABBIT_HOST}:{self.RABBIT_PORT}/")
 
 
 settings = Settings()

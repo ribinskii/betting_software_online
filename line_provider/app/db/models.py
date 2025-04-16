@@ -1,10 +1,12 @@
 import enum
 from decimal import Decimal
+
 from pydantic import BaseModel
+from sqlalchemy import Enum, Numeric
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import Numeric, Integer, Enum
 
 from app.db.database import Base
+
 
 class Status(enum.Enum):
     IN_PROGRESS = "незавершённое"

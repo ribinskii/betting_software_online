@@ -1,10 +1,12 @@
 import enum
 from decimal import Decimal
+
 from pydantic import BaseModel
+from sqlalchemy import Enum, Numeric
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import Numeric, Integer, Enum
 
 from app.db.database import Base
+
 
 class Status(enum.Enum):
     IN_PROGRESS = "еще не сыграла"
@@ -12,7 +14,7 @@ class Status(enum.Enum):
     FAIL = "проиграла"
 
 class EventsModel(BaseModel):
-    id: int | None = None
+    id: int
     bet_amount: Decimal
     status: Status
 

@@ -1,9 +1,7 @@
-from sqlalchemy import MetaData
-from sqlalchemy.orm import DeclarativeBase, declared_attr, DeclarativeMeta
-from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
-from stringcase import snakecase
-
 from config import settings
+from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase, declared_attr
+from stringcase import snakecase
 
 DATABASE_URL = settings.get_db_url
 

@@ -20,6 +20,7 @@ stringcase = "^1.2.0"
 greenlet = "^3.1.1"
 uvicorn = "^0.34.0"
 aio-pika = "^9.5.5"
+aioredis = "^2.0.1"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.5.4"
@@ -43,6 +44,32 @@ no_implicit_reexport = true
 line-length = 120
 target-version = "py310"
 src = ["app"]
+
+[tool.ruff.format]
+docstring-code-format = true
+line-ending = "lf"
+
+[tool.ruff.lint]
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+select = ["E", "F", "I", "N", "UP", "ANN", "ASYNC", "S", "B", "A", "C4", "G", "PIE", "Q", "SIM", "ARG", "PTH", "TD", "PL", "PERF"]
+ignore = ["ANN101", "PERF401"]
+
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = [
+    "pydantic.root_validator",
+    "pydantic.validator",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F403"]
+"**/{tests}/*" = ["S101"]
+
+[tool.ruff.lint.pylint]
+max-args = 9
+
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

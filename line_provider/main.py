@@ -1,25 +1,28 @@
+import asyncio
+import json
 import logging
 from contextlib import asynccontextmanager
 
 import aio_pika
 import uvicorn
-from fastapi import FastAPI, Path, HTTPException, Depends
+from app.db.models import Events, EventsModel
+from app.db.session import AsyncSessionLocal, get_session_db
+from config import settings
+from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Events, EventsModel
-from app.db.session import get_session_db
-import asyncio
-from datetime import datetime
-
-from config import settings
-from massage_broker import get_session_rabbit
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Lifespan_запущен")
-    await producer()
+    task = asyncio.create_task(producer())
     yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        print("Фоновая задача остановлена")
 
 
 app = FastAPI(lifespan=lifespan)
@@ -58,23 +61,51 @@ async def delete_event(event_id: int, session: AsyncSession = Depends(get_sessio
     return {"detail": f"Event with id {event_id} deleted successfully"}
 
 
+async def send_message(channel, queue_name, data: list):
+    await channel.default_exchange.publish(
+        aio_pika.Message(body=json.dumps(data).encode()),
+        routing_key=queue_name,
+    )
 
 
 async def producer():
-    print("settings.get_rabbitmq_url", settings.get_rabbitmq_url)
-    connection = await aio_pika.connect_robust(settings.get_rabbitmq_url, timeout=10)
+    session = AsyncSessionLocal()
 
-    queue_name = "test_queue"
+    try:
+        connection = await aio_pika.connect_robust(settings.get_rabbitmq_url)
+        queue_name = "test_queue"
 
-    async with connection:
-        routing_key = "test_queue"
-        channel = await connection.channel()
-        print("Producer: подключение к RabbitMQ установлено")
 
-        await channel.default_exchange.publish(
-            aio_pika.Message(body=f"Hello {routing_key}".encode()),
-            routing_key=routing_key,
-        )
+        async with connection:
+            channel = await connection.channel(publisher_confirms=False)
+            print("Producer: подключение к RabbitMQ установлено")
+            queue = await channel.declare_queue(
+                queue_name,
+                durable=True,  # Сохранять сообщения при перезапуске RabbitMQ
+                auto_delete=False  # Не удалять очередь при отключении клиента
+            )
+            print(f"Очередь '{queue_name}' создана/подключена")
+
+            while True:
+                try:
+                    result = await session.execute(select(Events))
+                    events = result.scalars().all()
+
+                    events_data = [{
+                        "id": event.id,
+                        "odds": str(event.odds),
+                        "deadline": event.deadline,
+                        "status": event.status.value
+                    } for event in events]
+
+                    await send_message(channel, queue_name, events_data)
+                except Exception as e:
+                    await session.rollback()
+                    logging.error(f"Error: {e}")
+
+                await asyncio.sleep(10)
+    finally:
+        await session.close()
 
 
 if __name__ == "__main__":

@@ -1,18 +1,26 @@
 services:
-  postgres:
+  postgres_bet_maker:
     image: postgres
-    container_name: postgres
+    container_name: postgres_bet_maker
     restart: always
     environment:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_DB=postgres
     ports:
-      - "5432:5432"
+      - "5434:5432"
+
+  redis:
+    image: redis
+    container_name: redis_bet_maker
+    restart: always
+    ports:
+      - "6379:6379"
 
   backend:
     build: .
     ports:
-      - "8080:8080"
+      - "8082:8080"
     depends_on:
-      - postgres
+      - postgres_bet_maker
+      - redis
