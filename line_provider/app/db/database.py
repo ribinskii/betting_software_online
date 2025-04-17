@@ -1,17 +1,29 @@
-from config import settings
-from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, declared_attr
-from stringcase import snakecase
+from collections.abc import AsyncGenerator
 
-DATABASE_URL = settings.get_db_url
+from app.config import settings
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-engine = create_async_engine(url=DATABASE_URL)
-async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
+engine = create_async_engine(settings.get_db_url, echo=False)
 
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    autocommit=False,
+    autoflush=False,
+    expire_on_commit=False,
+    class_=AsyncSession  # Явно указываем класс сессии
+)
 
-class Base(AsyncAttrs, DeclarativeBase):
-    __abstract__ = True
-
-    @declared_attr.directive
-    def __tablename__(cls) -> str:
-        return snakecase(cls.__name__)
+async def get_session_db() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Генератор асинхронных сессий базы данных.
+    """
+    session = AsyncSessionLocal()
+    try:
+        yield session
+        await session.commit()
+    except SQLAlchemyError as exc:
+        await session.rollback()
+        raise exc
+    finally:
+        await session.close()

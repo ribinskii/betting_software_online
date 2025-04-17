@@ -4,19 +4,25 @@ import logging
 from contextlib import asynccontextmanager
 
 import aio_pika
-import uvicorn
-from app.db.models import Events, EventsModel, Status
-from app.db.session import AsyncSessionLocal, get_session_db
-from config import settings
+from app.db.models import EventsModel, Status
+from app.db.schemas import Events
+from app.db.database import get_session_db, AsyncSessionLocal
+from app.config import settings, setup_logging
 from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.rebbit.queues import events_producer
+from app.rebbit.rebbit import RabbitMQSessionManager
+
+setup_logging(settings.LOG_LEVEL)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Lifespan_запущен")
-    task = asyncio.create_task(producer())
+    task = asyncio.create_task(events_producer())
     yield
     task.cancel()
     try:
@@ -64,7 +70,8 @@ async def delete_event(event_id: int, session: AsyncSession = Depends(get_sessio
 async def update_event_status(
         event_id: int,
         new_status: Status,
-        session: AsyncSession = Depends(get_session_db)
+        session: AsyncSession = Depends(get_session_db),
+        rabbitmq: RabbitMQSessionManager = Depends(RabbitMQSessionManager)
 ):
     try:
         # 1. Проверяем существование события
@@ -83,23 +90,13 @@ async def update_event_status(
         await session.commit()
 
         # 3. Отправляем обновление в RabbitMQ
-        connection = await aio_pika.connect_robust(settings.get_rabbitmq_url)
-        async with connection:
-            channel = await connection.channel()
-            queue = await channel.declare_queue("event_status_updates", durable=True)
-
-            message_body = json.dumps({
+        await rabbitmq.publish_message(
+            queue_name="event_status_update_queue",
+            message={
                 "event_id": event_id,
                 "new_status": new_status.value
-            }).encode()
-
-            await channel.default_exchange.publish(
-                aio_pika.Message(
-                    body=message_body,
-                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT
-                ),
-                routing_key="event_status_updates"
-            )
+            }
+        )
 
         return {"message": "Status updated successfully", "event_id": event_id, "new_status": new_status.value}
 
@@ -108,50 +105,3 @@ async def update_event_status(
     except Exception as e:
         await session.rollback()
         raise HTTPException(status_code=500, detail=f"Error updating event status: {str(e)}")
-
-
-async def send_message(channel, queue_name, data: list):
-    await channel.default_exchange.publish(
-        aio_pika.Message(body=json.dumps(data).encode()),
-        routing_key=queue_name,
-    )
-
-
-async def producer():
-    session = AsyncSessionLocal()
-
-    try:
-        connection = await aio_pika.connect_robust(settings.get_rabbitmq_url)
-        queue_name = "test_queue"
-
-
-        async with connection:
-            channel = await connection.channel(publisher_confirms=False)
-            print("Producer: подключение к RabbitMQ установлено")
-            queue = await channel.declare_queue(
-                queue_name,
-                durable=True,  # Сохранять сообщения при перезапуске RabbitMQ
-                auto_delete=False  # Не удалять очередь при отключении клиента
-            )
-            print(f"Очередь '{queue_name}' создана/подключена")
-
-            while True:
-                try:
-                    result = await session.execute(select(Events))
-                    events = result.scalars().all()
-
-                    events_data = [{
-                        "id": event.id,
-                        "odds": str(event.odds),
-                        "deadline": event.deadline,
-                        "status": event.status.value
-                    } for event in events]
-
-                    await send_message(channel, queue_name, events_data)
-                except Exception as e:
-                    await session.rollback()
-                    logging.error(f"Error: {e}")
-
-                await asyncio.sleep(10)
-    finally:
-        await session.close()

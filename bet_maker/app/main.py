@@ -3,22 +3,26 @@ import json
 from contextlib import asynccontextmanager
 from datetime import datetime
 from decimal import Decimal
-
+import logging
 import aio_pika
 import aioredis
-import uvicorn
 from app.db.custom_models import BetAmount, BetOut
-from app.db.models import Events, Status, LineProviderStatus
-from app.db.session import get_session_db, AsyncSessionLocal
-from config import settings
+from app.db.schemas import Events, Status
+from app.db.database import get_session_db, AsyncSessionLocal
+from app.config import settings, setup_logging
 from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.rabbit.queues import events_consumer, status_update_consumer
+from app.rabbit.rebbit import RabbitMQSessionManager
+
+setup_logging(settings.LOG_LEVEL)
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    consumer_task = asyncio.create_task(consumer())
+    consumer_task = asyncio.create_task(events_consumer())
     status_consumer = asyncio.create_task(status_update_consumer())
     yield
     consumer_task.cancel()
@@ -100,121 +104,4 @@ async def get_bets(session: AsyncSession = Depends(get_session_db)):
             detail=f"Ошибка при получении истории ставок: {str(e)}"
         )
 
-async def consumer() -> None:
-    print("Началось подключение к RabbitMQ")
-    try:
-        connection = await aio_pika.connect_robust(
-            settings.get_rabbitmq_url,
-        )
-        print("Успешное подключение к RabbitMQ")
 
-        queue_name = "test_queue"
-
-        async with connection:
-            channel = await connection.channel()
-            await channel.set_qos(prefetch_count=10)
-
-            # 1. Создаем очередь без auto_delete
-            queue = await channel.declare_queue(
-                queue_name,
-                durable=True,  # Сохранять очередь после перезапуска
-                auto_delete=False  # Не удалять при отключении
-            )
-
-            print(f"Очередь '{queue_name}' готова к получению сообщений")
-
-            # 2. Явно привязываем к exchange (если нужно)
-            # exchange = await channel.declare_exchange("direct", auto_delete=False)
-            # await queue.bind(exchange, routing_key=queue_name)
-
-            async with queue.iterator() as queue_iter:
-                async for message in queue_iter:
-                    try:
-                        async with message.process():
-                            available_events = json.loads(message.body.decode())
-                            print(f"Получено сообщение: {available_events}")
-                            redis = aioredis.from_url(settings.get_redis_url)
-                            await redis.set("available_events", json.dumps(available_events))
-
-                    except Exception as e:
-                        print(f"Ошибка обработки сообщения: {e}")
-                        # Можно добавить логику повторной обработки
-
-    except Exception as e:
-        print(f"Ошибка в consumer: {e}")
-        # Здесь можно добавить логику переподключения
-
-def map_producer_to_consumer_status(producer_status):
-    mapping = {
-        "незавершённое": Status.IN_PROGRESS,
-        "завершено выигрышем первой команды": Status.WIN,
-        "завершено выигрышем второй команды": Status.FAIL
-    }
-    return mapping.get(producer_status, Status.IN_PROGRESS)
-async def status_update_consumer() -> None:
-    print("Запуск консьюмера для обновления статусов событий")
-    session = AsyncSessionLocal()
-
-    try:
-        connection = await aio_pika.connect_robust(
-            settings.get_rabbitmq_url,
-        )
-        print("Успешное подключение к RabbitMQ для консьюмера статусов")
-
-        queue_name = "event_status_updates"
-
-        async with connection:
-            channel = await connection.channel()
-            await channel.set_qos(prefetch_count=10)
-
-            queue = await channel.declare_queue(
-                queue_name,
-                durable=True,
-                auto_delete=False
-            )
-
-            print(f"Очередь '{queue_name}' готова к получению сообщений")
-
-            async with queue.iterator() as queue_iter:
-                async for message in queue_iter:
-                    try:
-                        async with message.process():
-                            data = json.loads(message.body.decode())
-                            print(f"Получено обновление статуса: {data}")
-
-                            # Обновляем статус в базе данных
-                            event_id = data["event_id"]
-                            producer_status_value = data["new_status"]
-
-                            # Преобразуем статус продюсера в статус консьюмера
-                            try:
-                                new_status = map_producer_to_consumer_status(producer_status_value)
-                            except ValueError:
-                                print(f"Неизвестный статус: {producer_status_value}")
-                                continue
-                            # Проверяем существование события
-                            result = await session.execute(
-                                select(Events).where(Events.id == event_id)
-                            )
-                            event = result.scalar_one_or_none()
-
-                            if not event:
-                                print(f"Событие с ID {event_id} не найдено")
-                                continue
-                            # Обновляем статусevent
-                            event.status = new_status
-                            await session.commit()
-                            print(f"Статус события {event_id} обновлен на {new_status}")
-
-                    except json.JSONDecodeError as e:
-                        print(f"Ошибка декодирования JSON: {e}")
-                    except KeyError as e:
-                        print(f"Отсутствует обязательное поле в сообщении: {e}")
-                    except Exception as e:
-                        print(f"Ошибка обработки сообщения: {e}")
-                        await session.rollback()
-
-    except Exception as e:
-        print(f"Ошибка в консьюмере статусов: {e}")
-    finally:
-        await session.close()
