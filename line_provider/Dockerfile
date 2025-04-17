@@ -8,9 +8,9 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 
 ENV PATH="/root/.local/bin:$PATH"
 
-WORKDIR /app
+WORKDIR /line_provider
 
-COPY . /app
+COPY . /line_provider
 
 RUN poetry install --no-root
 

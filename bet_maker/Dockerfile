@@ -8,9 +8,9 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 
 ENV PATH="/root/.local/bin:$PATH"
 
-WORKDIR /app
+WORKDIR /bet_maker
 
-COPY . /app
+COPY . /bet_maker
 
 RUN poetry install --no-root
 
