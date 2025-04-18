@@ -1,20 +1,16 @@
-import asyncio
 import json
-from contextlib import asynccontextmanager
+import logging
 from datetime import datetime
 from decimal import Decimal
-import logging
-import aio_pika
-import aioredis
-from aioredis import Redis
 
-from app.db.custom_models import BetAmount, BetOut
-from app.db.schemas import Events, Status
-from app.db.database import get_session_db
-from fastapi import Depends, FastAPI, HTTPException, APIRouter
+from aioredis import Redis
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.custom_models import BetAmount, BetOut
+from app.db.db import get_db
+from app.db.schemas import Events, Status
 from app.redis.redis import get_redis_global
 
 logger = logging.getLogger(__name__)
@@ -32,7 +28,7 @@ async def get_events(redis: Redis = Depends(get_redis_global),):
     return available_events
 
 @router_bet_maker.post("/bet")
-async def post_bet(bet_amount: BetAmount = Depends(), session: AsyncSession = Depends(get_session_db), redis: Redis = Depends(get_redis_global), ):
+async def post_bet(bet_amount: BetAmount = Depends(), session: AsyncSession = Depends(get_db), redis: Redis = Depends(get_redis_global), ):
     try:
         events_data = await redis.get("available_events")
         events_data = json.loads(events_data)
@@ -75,7 +71,7 @@ async def post_bet(bet_amount: BetAmount = Depends(), session: AsyncSession = De
         raise HTTPException(status_code=500, detail=f"Ошибка при создании ставки: {str(e)}")
 
 @router_bet_maker.get("/bets", response_model=list[BetOut])
-async def get_bets(session: AsyncSession = Depends(get_session_db)):
+async def get_bets(session: AsyncSession = Depends(get_db)):
     try:
         stmt = select(Events.id, Events.status)
         result = await session.execute(stmt)

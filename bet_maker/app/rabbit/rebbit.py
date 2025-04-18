@@ -1,9 +1,10 @@
-import aio_pika
 import json
-from typing import AsyncIterator, Any, Dict
-from contextlib import asynccontextmanager
-from app.config import settings
 import logging
+from collections.abc import AsyncIterator
+from typing import Any
+
+import aio_pika
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,7 @@ class RabbitMQSessionManager:
     def __init__(self, prefetch_count: int = 10):
         self.prefetch_count = prefetch_count
 
-    async def consume_messages(self, queue_name: str) -> AsyncIterator[Dict[str, Any]]:
+    async def consume_messages(self, queue_name: str) -> AsyncIterator[dict[str, Any]]:
         """
         Асинхронный генератор сообщений из очереди RabbitMQ
 

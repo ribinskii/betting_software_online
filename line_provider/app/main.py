@@ -2,7 +2,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-
+from app.db.db import engine
 from app.api.routers_bind import router_base
 from app.config import settings, setup_logging
 from fastapi import Depends, FastAPI, HTTPException
@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI):
     task = asyncio.create_task(events_producer())
     yield
     task.cancel()
+    await engine.dispose()
     try:
         await task
     except asyncio.CancelledError:

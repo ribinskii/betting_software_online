@@ -2,7 +2,7 @@ import logging
 
 from app.db.models import EventsModel, Status
 from app.db.schemas import Events
-from app.db.database import get_session_db, AsyncSessionLocal
+from app.db.db import get_db
 from fastapi import Depends, FastAPI, HTTPException, APIRouter
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 router_line_provider = APIRouter()
 
 @router_line_provider.get("/events")
-async def get_events(session: AsyncSession = Depends(get_session_db)):
+async def get_events(session: AsyncSession = Depends(get_db)):
     query = select(Events)
     result = await session.execute(query)
     events = result.scalars().all()
@@ -22,7 +22,7 @@ async def get_events(session: AsyncSession = Depends(get_session_db)):
     return events
 
 @router_line_provider.post("/event")
-async def create_event(event: EventsModel=Depends(), session: AsyncSession = Depends(get_session_db)):
+async def create_event(event: EventsModel=Depends(), session: AsyncSession = Depends(get_db)):
     new_event = Events(
         odds=event.odds,
         deadline=event.deadline,
@@ -34,7 +34,7 @@ async def create_event(event: EventsModel=Depends(), session: AsyncSession = Dep
     return new_event
 
 @router_line_provider.delete("/event/{event_id}")
-async def delete_event(event_id: int, session: AsyncSession = Depends(get_session_db)):
+async def delete_event(event_id: int, session: AsyncSession = Depends(get_db)):
     result = await session.execute(select(Events).where(Events.id == event_id))
     event = result.scalar_one_or_none()
 
@@ -50,7 +50,7 @@ async def delete_event(event_id: int, session: AsyncSession = Depends(get_sessio
 async def update_event_status(
         event_id: int,
         new_status: Status,
-        session: AsyncSession = Depends(get_session_db),
+        session: AsyncSession = Depends(get_db),
         rabbitmq: RabbitMQSessionManager = Depends(RabbitMQSessionManager)
 ):
     try:

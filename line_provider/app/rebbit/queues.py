@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 import aio_pika
 from app.db.models import EventsModel, Status
 from app.db.schemas import Events
-from app.db.database import get_session_db, AsyncSessionLocal
+from app.db.db import get_db, AsyncSessionLocal
 from app.config import settings, setup_logging
 from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import select, update

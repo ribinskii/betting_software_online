@@ -1,21 +1,14 @@
 import asyncio
 import json
-from contextlib import asynccontextmanager
-from datetime import datetime
-from decimal import Decimal
 import logging
-import aio_pika
-import aioredis
-from app.db.custom_models import BetAmount, BetOut
-from app.db.schemas import Events, Status
-from app.db.database import get_session_db, AsyncSessionLocal
-from app.config import settings, setup_logging
-from fastapi import Depends, FastAPI, HTTPException
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
+import aioredis
+from app.config import settings
+from app.db.db import AsyncSessionLocal
+from app.db.schemas import Events
 from app.rabbit.rebbit import RabbitMQSessionManager
 from app.rabbit.utils import map_producer_to_consumer_status
+from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 

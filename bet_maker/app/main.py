@@ -1,13 +1,13 @@
 import asyncio
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
 
 import aioredis
+from fastapi import FastAPI
 
 from app.api.routers_bind import router_base
 from app.config import settings, setup_logging
-from fastapi import Depends, FastAPI, HTTPException
-
+from app.db.db import engine
 from app.rabbit.queues import events_consumer, status_update_consumer
 
 setup_logging(settings.LOG_LEVEL)
@@ -25,6 +25,7 @@ async def lifespan(app: FastAPI):
     consumer_task.cancel()
     status_consumer.cancel()
     await redis.close()
+    await engine.dispose()
     try:
         await asyncio.gather(consumer_task, status_consumer)
     except asyncio.CancelledError:

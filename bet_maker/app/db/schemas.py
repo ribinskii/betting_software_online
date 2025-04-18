@@ -1,13 +1,12 @@
-from app.db.models import Status
-from app.config import settings
-from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, declared_attr
-from stringcase import snakecase
 from decimal import Decimal
 
 from sqlalchemy import Enum, Numeric
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
+from stringcase import snakecase
 
+from app.config import settings
+from app.db.models import Status
 
 DATABASE_URL = settings.get_db_url
 

@@ -1,9 +1,7 @@
-import aioredis
 
-from app.config import settings
 
-from fastapi import Depends, Request
 from aioredis import Redis
+from fastapi import Request
 
 
 async def get_redis_global(request: Request) -> Redis:
