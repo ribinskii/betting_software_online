@@ -2,11 +2,11 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from app.db.db import engine
-from app.api.routers_bind import router_base
-from app.config import settings, setup_logging
 from fastapi import FastAPI
 
+from app.api.routers_bind import router_base
+from app.config import settings, setup_logging
+from app.db.db import engine
 from app.rebbit.queues import events_producer
 
 setup_logging(settings.LOG_LEVEL)

@@ -1,11 +1,10 @@
 import asyncio
 import logging
 
-from app.db.schemas import Events
 from app.db.db import AsyncSessionLocal
-from sqlalchemy import select
-
+from app.db.schemas import Events
 from app.rebbit.rebbit import RabbitMQSessionManager
+from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 

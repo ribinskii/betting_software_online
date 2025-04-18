@@ -1,12 +1,12 @@
 import logging
 
-from app.db.models import EventsModel, Status
-from app.db.schemas import Events
-from app.db.db import get_db
-from fastapi import Depends, FastAPI, HTTPException, APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.db import get_db
+from app.db.models import EventsModel, Status
+from app.db.schemas import Events
 from app.rebbit.rebbit import RabbitMQSessionManager
 
 logger = logging.getLogger(__name__)

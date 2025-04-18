@@ -1,9 +1,10 @@
-import aio_pika
 import json
-from typing import AsyncIterator, Any, Dict, Optional, Union, List
-from contextlib import asynccontextmanager
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Any
 
+import aio_pika
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 class RabbitMQSessionManager:
     def __init__(self, prefetch_count: int = 10):
         self.prefetch_count = prefetch_count
-        self._connection: Optional[aio_pika.RobustConnection] = None
+        self._connection: aio_pika.RobustConnection | None = None
 
     async def connect(self) -> None:
         if not self._connection or self._connection.is_closed:
@@ -40,7 +41,7 @@ class RabbitMQSessionManager:
     async def publish_message(
             self,
             queue_name: str,
-            message: Union[Dict, List, str],
+            message: dict | list | str,
             persistent: bool = True
     ) -> None:
         async with self.get_channel() as channel:
@@ -65,7 +66,7 @@ class RabbitMQSessionManager:
             )
             logger.debug(f"Message published to {queue_name}")
 
-    async def consume_messages(self, queue_name: str) -> AsyncIterator[Dict[str, Any]]:
+    async def consume_messages(self, queue_name: str) -> AsyncIterator[dict[str, Any]]:
         async with self.get_channel() as channel:
             await channel.set_qos(prefetch_count=self.prefetch_count)
             queue = await self.declare_queue(channel, queue_name)

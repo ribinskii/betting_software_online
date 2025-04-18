@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from sqlalchemy import Enum, Numeric
+from sqlalchemy import Numeric
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 from stringcase import snakecase
