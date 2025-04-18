@@ -23,4 +23,4 @@ class Base(AsyncAttrs, DeclarativeBase):
 class Events(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, nullable=False)
     bet_amount: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
-    status: Mapped[Status] = mapped_column(Enum(Status), nullable=False) # можно ли удалить Enum(Status)?
+    status: Mapped[Status] = mapped_column(nullable=False)

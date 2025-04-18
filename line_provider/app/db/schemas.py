@@ -5,7 +5,7 @@ from sqlalchemy.orm import DeclarativeBase, declared_attr
 from stringcase import snakecase
 from decimal import Decimal
 
-from sqlalchemy import Enum, Numeric
+from sqlalchemy import Numeric
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -27,4 +27,4 @@ class Events(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, nullable=False)
     odds: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
     deadline: Mapped[int] = mapped_column(nullable=False)
-    status: Mapped[Status] = mapped_column(Enum(Status), nullable=False) # можно ли удалить Enum(Status)?
+    status: Mapped[Status] = mapped_column(nullable=False)

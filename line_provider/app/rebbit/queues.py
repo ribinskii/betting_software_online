@@ -1,16 +1,9 @@
 import asyncio
-import json
 import logging
-from contextlib import asynccontextmanager
 
-import aio_pika
-from app.db.models import EventsModel, Status
 from app.db.schemas import Events
-from app.db.db import get_db, AsyncSessionLocal
-from app.config import settings, setup_logging
-from fastapi import Depends, FastAPI, HTTPException
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.db import AsyncSessionLocal
+from sqlalchemy import select
 
 from app.rebbit.rebbit import RabbitMQSessionManager
 

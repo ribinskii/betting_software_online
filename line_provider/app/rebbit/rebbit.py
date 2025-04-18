@@ -15,26 +15,22 @@ class RabbitMQSessionManager:
         self._connection: Optional[aio_pika.RobustConnection] = None
 
     async def connect(self) -> None:
-        """Установить соединение с RabbitMQ"""
         if not self._connection or self._connection.is_closed:
             self._connection = await aio_pika.connect_robust(settings.get_rabbitmq_url)
             logger.info("Connected to RabbitMQ")
 
     async def close(self) -> None:
-        """Закрыть соединение с RabbitMQ"""
         if self._connection and not self._connection.is_closed:
             await self._connection.close()
             logger.info("Disconnected from RabbitMQ")
 
     @asynccontextmanager
     async def get_channel(self) -> AsyncIterator[aio_pika.RobustChannel]:
-        """Контекстный менеджер для работы с каналом"""
         await self.connect()
         async with self._connection.channel() as channel:
             yield channel
 
     async def declare_queue(self, channel: aio_pika.RobustChannel, queue_name: str) -> aio_pika.Queue:
-        """Объявить очередь"""
         return await channel.declare_queue(
             queue_name,
             durable=True,
@@ -47,13 +43,6 @@ class RabbitMQSessionManager:
             message: Union[Dict, List, str],
             persistent: bool = True
     ) -> None:
-        """
-        Отправить сообщение в очередь
-
-        :param queue_name: Название очереди
-        :param message: Сообщение (dict, list или str)
-        :param persistent: Сохранять сообщение при перезагрузке сервера
-        """
         async with self.get_channel() as channel:
             await self.declare_queue(channel, queue_name)
 
@@ -77,12 +66,6 @@ class RabbitMQSessionManager:
             logger.debug(f"Message published to {queue_name}")
 
     async def consume_messages(self, queue_name: str) -> AsyncIterator[Dict[str, Any]]:
-        """
-        Асинхронный генератор сообщений из очереди RabbitMQ
-
-        :param queue_name: Название очереди
-        :yield: Словарь с данными сообщения
-        """
         async with self.get_channel() as channel:
             await channel.set_qos(prefetch_count=self.prefetch_count)
             queue = await self.declare_queue(channel, queue_name)

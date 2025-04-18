@@ -9,7 +9,6 @@ class BetAmount(BaseModel):
     id: int
     amount: Decimal
 
-    # Валидация суммы ставки
     @validator("amount")
     def validate_amount(cls, amount):
         if amount <= 0:

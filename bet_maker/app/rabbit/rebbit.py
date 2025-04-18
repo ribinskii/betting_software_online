@@ -14,12 +14,6 @@ class RabbitMQSessionManager:
         self.prefetch_count = prefetch_count
 
     async def consume_messages(self, queue_name: str) -> AsyncIterator[dict[str, Any]]:
-        """
-        Асинхронный генератор сообщений из очереди RabbitMQ
-
-        :param queue_name: Название очереди
-        :yield: Словарь с данными сообщения
-        """
         connection = await aio_pika.connect_robust(settings.get_rabbitmq_url)
 
         try:

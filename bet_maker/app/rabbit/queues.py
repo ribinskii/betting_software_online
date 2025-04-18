@@ -13,17 +13,12 @@ from sqlalchemy import select
 logger = logging.getLogger(__name__)
 
 async def events_consumer() -> None:
-    """
-    Потребитель для обработки сообщений из очереди 'test_queue'
-    и сохранения данных в Redis
-    """
     logger.info("Запуск consumer для обработки событий")
 
     rabbit_manager = RabbitMQSessionManager(prefetch_count=10)
     redis = aioredis.from_url(settings.get_redis_url)
 
     try:
-        # Правильное использование асинхронного генератора
         message_generator = rabbit_manager.consume_messages("events_queue")
         async for message_data in message_generator:
             try:
@@ -32,7 +27,7 @@ async def events_consumer() -> None:
                 await redis.set(
                     "available_events",
                     json.dumps(message_data),
-                    ex=3600  # TTL 1 час
+                    ex=3600
                 )
                 logger.debug("Данные успешно сохранены в Redis")
 
@@ -69,7 +64,6 @@ async def status_update_consumer() -> None:
                     logger.error(f"Неизвестный статус: {producer_status_value}")
                     continue
 
-                # Проверяем существование события
                 result = await session.execute(
                     select(Events).where(Events.id == event_id)
                 )
@@ -79,7 +73,6 @@ async def status_update_consumer() -> None:
                     logger.error(f"Событие с ID {event_id} не найдено")
                     continue
 
-                # Обновляем статус
                 event.status = new_status
                 await session.commit()
                 logger.info(f"Статус события {event_id} обновлен на {new_status}")

@@ -35,10 +35,6 @@ class Settings(BaseSettings):
                 f"{self.RABBIT_HOST}:{self.RABBIT_PORT}/")
 
 def setup_logging(log_level) -> None:
-    """
-    Настройка базового конфигурирования для логирования с использованием переменных окружения.
-    """
-
     logging.basicConfig(
         level=log_level.upper(),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

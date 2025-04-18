@@ -11,13 +11,10 @@ AsyncSessionLocal = async_sessionmaker(
     autocommit=False,
     autoflush=False,
     expire_on_commit=False,
-    class_=AsyncSession  # Явно указываем класс сессии
+    class_=AsyncSession
 )
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Генератор асинхронных сессий базы данных.
-    """
     session = AsyncSessionLocal()
     try:
         yield session

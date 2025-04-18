@@ -54,14 +54,12 @@ async def update_event_status(
         rabbitmq: RabbitMQSessionManager = Depends(RabbitMQSessionManager)
 ):
     try:
-        # 1. Проверяем существование события
         result = await session.execute(select(Events).where(Events.id == event_id))
         event = result.scalar_one_or_none()
 
         if event is None:
             raise HTTPException(status_code=404, detail="Event not found")
 
-        # 2. Обновляем статус
         await session.execute(
             update(Events)
             .where(Events.id == event_id)
@@ -69,7 +67,6 @@ async def update_event_status(
         )
         await session.commit()
 
-        # 3. Отправляем обновление в RabbitMQ
         await rabbitmq.publish_message(
             queue_name="event_status_update_queue",
             message={

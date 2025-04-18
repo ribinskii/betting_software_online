@@ -2,8 +2,6 @@ import enum
 from decimal import Decimal
 
 from pydantic import BaseModel
-from sqlalchemy import Enum, Numeric
-from sqlalchemy.orm import Mapped, mapped_column
 
 
 class Status(enum.Enum):
