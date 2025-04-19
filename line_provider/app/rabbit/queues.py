@@ -3,7 +3,7 @@ import logging
 
 from app.db.db import AsyncSessionLocal
 from app.db.schemas import Events
-from app.rebbit.rebbit import RabbitMQSessionManager
+from app.rabbit.rabbit import RabbitMQSessionManager
 from sqlalchemy import select
 
 logger = logging.getLogger(__name__)

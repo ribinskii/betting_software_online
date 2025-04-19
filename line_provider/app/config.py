@@ -21,6 +21,12 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str
 
+    TEST_DB_USER: str
+    TEST_DB_PASSWORD: str
+    TEST_DB_HOST: str
+    TEST_DB_PORT: int
+    TEST_DB_NAME: str
+
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env"
     )
@@ -34,6 +40,11 @@ class Settings(BaseSettings):
     def get_rabbitmq_url(self):
         return (f"amqp://{self.RABBIT_USER}:{self.RABBIT_PASSWORD}@"
                 f"{self.RABBIT_HOST}:{self.RABBIT_PORT}/")
+
+    @property
+    def get_test_db_url(self):
+        return (f"postgresql+asyncpg://{self.TEST_DB_USER}:{self.TEST_DB_PASSWORD}@"
+                f"{self.TEST_DB_HOST}:{self.TEST_DB_PORT}/{self.TEST_DB_NAME}")
 
 def setup_logging(log_level) -> None:
     logging.basicConfig(

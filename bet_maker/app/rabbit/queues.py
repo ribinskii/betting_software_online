@@ -6,7 +6,7 @@ import aioredis
 from app.config import settings
 from app.db.db import AsyncSessionLocal
 from app.db.schemas import Events
-from app.rabbit.rebbit import RabbitMQSessionManager
+from app.rabbit.rabbit import RabbitMQSessionManager
 from app.rabbit.utils import map_producer_to_consumer_status
 from sqlalchemy import select
 

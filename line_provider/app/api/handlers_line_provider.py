@@ -1,13 +1,13 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.db import get_db
 from app.db.models import EventsModel, Status
 from app.db.schemas import Events
-from app.rebbit.rebbit import RabbitMQSessionManager
+from app.rabbit.rabbit import RabbitMQSessionManager
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,6 @@ async def get_events(session: AsyncSession = Depends(get_db)):
     query = select(Events)
     result = await session.execute(query)
     events = result.scalars().all()
-    print(events)
     return events
 
 @router_line_provider.post("/event")
