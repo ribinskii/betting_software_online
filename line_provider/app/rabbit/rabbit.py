@@ -11,8 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class RabbitMQSessionManager:
-    def __init__(self, prefetch_count: int = 10):
-        self.prefetch_count = prefetch_count
+    def __init__(self):
         self._connection: aio_pika.RobustConnection | None = None
 
     async def connect(self) -> None:
@@ -68,7 +67,7 @@ class RabbitMQSessionManager:
 
     async def consume_messages(self, queue_name: str) -> AsyncIterator[dict[str, Any]]:
         async with self.get_channel() as channel:
-            await channel.set_qos(prefetch_count=self.prefetch_count)
+            await channel.set_qos(prefetch_count=10)
             queue = await self.declare_queue(channel, queue_name)
 
             logger.info(f"Очередь '{queue_name}' готова к получению сообщений")

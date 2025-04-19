@@ -11,7 +11,7 @@ services:
       - "5430:5432"
 
   backend:
-    build: ..
+    build: ../..
     ports:
       - "8080:8080"
     depends_on:
