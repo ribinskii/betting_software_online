@@ -11,6 +11,7 @@ DC_DOWN = docker-compose down
 DC_REBUILD = docker-compose up -d --build
 DC_PS = docker-compose ps
 DC_CLEAN = docker-compose down -v --rmi local
+SLEEP = sleep 10
 
 .PHONY: all up down rebuild ps clean \
         up-bet-maker up-line-provider up-message-broker \
@@ -20,8 +21,13 @@ DC_CLEAN = docker-compose down -v --rmi local
         clean-bet-maker clean-line-provider clean-message-broker
 
 # Start all services
-all: up-bet-maker up-line-provider up-message-broker
+all: up-message-broker sleep-before-up up-bet-maker up-line-provider
 up: all
+
+# Sleep 5 second
+sleep-before-up:
+	@echo "Waiting 5 seconds for Message Broker to initialize..."
+	@$(SLEEP)
 
 # Stop all services
 down: down-bet-maker down-line-provider down-message-broker
